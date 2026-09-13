@@ -1,0 +1,15 @@
+services:
+  relay:
+    container_name: undo-isle-relay
+    build:
+      context: ./UndoIsle.TeamRelay.Server
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - npm_proxy
+
+networks:
+  npm_proxy:
+    external: true
+    name: ${NPM_NETWORK}
