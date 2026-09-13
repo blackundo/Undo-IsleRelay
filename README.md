@@ -47,7 +47,7 @@ public static readonly Uri DefaultBaseUri = new("https://relay.example.com/");
 
 ## Phạm vi bản đầu
 
-- Tối đa 8 thành viên mỗi nhóm.
+- Tối đa 15 thành viên mỗi nhóm.
 - Thành viên hết hạn sau 45 giây không heartbeat.
 - Telemetry và map ping được kiểm tra giới hạn đầu vào.
 - Token thành viên được sinh ngẫu nhiên bằng bộ sinh số mật mã.
