@@ -18,7 +18,17 @@ public sealed class RelayCleanupService(
                 await hubContext.Clients.Group(TeamHub.GroupName(removal.TeamId))
                     .SendAsync("MemberRemoved", removal.MemberId, stoppingToken);
                 await hubContext.Clients.Group(TeamHub.GroupName(removal.TeamId))
+                    .SendAsync(
+                        "MemberRemovedV2",
+                        new TeamMemberRemoval(removal.MemberId, removal.StateRevision),
+                        stoppingToken);
+                await hubContext.Clients.Group(TeamHub.GroupName(removal.TeamId))
                     .SendAsync("MapPingsChanged", removal.MapPings, stoppingToken);
+                await hubContext.Clients.Group(TeamHub.GroupName(removal.TeamId))
+                    .SendAsync(
+                        "MapPingsChangedV2",
+                        new TeamMapPingBatch(removal.MapPings, removal.StateRevision),
+                        stoppingToken);
             }
 
             if (removals.Count > 0)

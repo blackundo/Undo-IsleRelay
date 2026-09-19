@@ -30,6 +30,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
     service = "undo-isle-team-relay",
+    protocol = 2,
     utc = DateTimeOffset.UtcNow
 }));
 
@@ -79,7 +80,17 @@ app.MapDelete("/api/v1/teams/me", async (
             await hub.Clients.Group(TeamHub.GroupName(removal.TeamId))
                 .SendAsync("MemberRemoved", removal.MemberId, cancellationToken);
             await hub.Clients.Group(TeamHub.GroupName(removal.TeamId))
+                .SendAsync(
+                    "MemberRemovedV2",
+                    new TeamMemberRemoval(removal.MemberId, removal.StateRevision),
+                    cancellationToken);
+            await hub.Clients.Group(TeamHub.GroupName(removal.TeamId))
                 .SendAsync("MapPingsChanged", removal.MapPings, cancellationToken);
+            await hub.Clients.Group(TeamHub.GroupName(removal.TeamId))
+                .SendAsync(
+                    "MapPingsChangedV2",
+                    new TeamMapPingBatch(removal.MapPings, removal.StateRevision),
+                    cancellationToken);
         }
 
         return Results.NoContent();

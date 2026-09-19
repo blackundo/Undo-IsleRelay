@@ -69,6 +69,18 @@ public sealed class TeamHub(RelayStore store) : Hub
         }
     }
 
+    public TeamSnapshot GetSnapshot()
+    {
+        try
+        {
+            return store.GetSnapshot(Token());
+        }
+        catch (RelayException exception)
+        {
+            throw new HubException(exception.Code);
+        }
+    }
+
     public async Task Leave()
     {
         var removal = store.Leave(Token());
@@ -81,7 +93,15 @@ public sealed class TeamHub(RelayStore store) : Hub
         await Clients.Group(GroupName(removal.TeamId))
             .SendAsync("MemberRemoved", removal.MemberId);
         await Clients.Group(GroupName(removal.TeamId))
+            .SendAsync("MemberRemovedV2", new TeamMemberRemoval(
+                removal.MemberId,
+                removal.StateRevision));
+        await Clients.Group(GroupName(removal.TeamId))
             .SendAsync("MapPingsChanged", removal.MapPings);
+        await Clients.Group(GroupName(removal.TeamId))
+            .SendAsync("MapPingsChangedV2", new TeamMapPingBatch(
+                removal.MapPings,
+                removal.StateRevision));
     }
 
     public async Task<TeamMapPingSnapshot> UpsertMapPing(TeamMapPingMutation mutation)
@@ -91,6 +111,10 @@ public sealed class TeamHub(RelayStore store) : Hub
             var result = store.UpsertMapPing(Token(), mutation);
             await Clients.Group(GroupName(result.TeamId))
                 .SendAsync("MapPingsChanged", result.MapPings);
+            await Clients.Group(GroupName(result.TeamId))
+                .SendAsync("MapPingsChangedV2", new TeamMapPingBatch(
+                    result.MapPings,
+                    result.StateRevision));
             return result.Ping;
         }
         catch (RelayException exception)
@@ -106,6 +130,10 @@ public sealed class TeamHub(RelayStore store) : Hub
             var result = store.DeleteMapPing(Token(), pingId, expectedRevision);
             await Clients.Group(GroupName(result.TeamId))
                 .SendAsync("MapPingsChanged", result.MapPings);
+            await Clients.Group(GroupName(result.TeamId))
+                .SendAsync("MapPingsChangedV2", new TeamMapPingBatch(
+                    result.MapPings,
+                    result.StateRevision));
             return true;
         }
         catch (RelayException exception)

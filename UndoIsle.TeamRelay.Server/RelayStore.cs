@@ -69,6 +69,7 @@ public sealed class RelayStore
             var member = RequireMember(token);
             member.ConnectionIds.Add(connectionId);
             member.LastSeenAt = DateTimeOffset.UtcNow;
+            member.StateRevision = NextRevision(member.Team);
             return new MemberContext(member.Team.Id, member.Id, Snapshot(member.Team));
         }
     }
@@ -84,6 +85,7 @@ public sealed class RelayStore
 
             member.ConnectionIds.Remove(connectionId);
             member.LastSeenAt = DateTimeOffset.UtcNow;
+            member.StateRevision = NextRevision(member.Team);
             return new MemberStatus(member.Team.Id, ToSnapshot(member));
         }
     }
@@ -93,6 +95,14 @@ public sealed class RelayStore
         lock (_gate)
         {
             RequireMember(token).LastSeenAt = DateTimeOffset.UtcNow;
+        }
+    }
+
+    public TeamSnapshot GetSnapshot(string token)
+    {
+        lock (_gate)
+        {
+            return Snapshot(RequireMember(token).Team);
         }
     }
 
@@ -115,6 +125,7 @@ public sealed class RelayStore
                 Sequence = update.Sequence,
                 Source = Limit(update.Source, 64),
                 ServerKey = Limit(update.ServerKey, 160),
+                ServerEndpoint = Limit(update.ServerEndpoint, 160),
                 ServerName = Limit(update.ServerName, 160),
                 MapId = Limit(update.MapId, 64),
                 Species = Limit(update.Species, 80),
@@ -128,6 +139,7 @@ public sealed class RelayStore
                 HeadingDegrees = update.HeadingDegrees,
                 UpdatedAt = member.LastSeenAt
             };
+            member.StateRevision = NextRevision(member.Team);
             return new TelemetryResult(member.Team.Id, true, ToSnapshot(member));
         }
     }
@@ -176,7 +188,12 @@ public sealed class RelayStore
             }
 
             team.MapPings[ping.PingId] = ping;
-            return new MapPingResult(team.Id, ping, team.MapPings.Values.ToArray());
+            var stateRevision = NextRevision(team);
+            return new MapPingResult(
+                team.Id,
+                ping,
+                team.MapPings.Values.ToArray(),
+                stateRevision);
         }
     }
 
@@ -202,7 +219,11 @@ public sealed class RelayStore
             }
 
             member.Team.MapPings.Remove(pingId);
-            return new MapPingListResult(member.Team.Id, member.Team.MapPings.Values.ToArray());
+            var stateRevision = NextRevision(member.Team);
+            return new MapPingListResult(
+                member.Team.Id,
+                member.Team.MapPings.Values.ToArray(),
+                stateRevision);
         }
     }
 
@@ -215,11 +236,12 @@ public sealed class RelayStore
                 return null;
             }
 
-            RemoveMember(member);
+            var stateRevision = RemoveMember(member);
             return new MemberRemoval(
                 member.Team.Id,
                 member.Id,
-                member.Team.MapPings.Values.ToArray());
+                member.Team.MapPings.Values.ToArray(),
+                stateRevision);
         }
     }
 
@@ -234,11 +256,12 @@ public sealed class RelayStore
             var removals = new List<MemberRemoval>(expired.Length);
             foreach (var member in expired)
             {
-                RemoveMember(member);
+                var stateRevision = RemoveMember(member);
                 removals.Add(new MemberRemoval(
                     member.Team.Id,
                     member.Id,
-                    member.Team.MapPings.Values.ToArray()));
+                    member.Team.MapPings.Values.ToArray(),
+                    stateRevision));
             }
 
             return removals;
@@ -250,6 +273,7 @@ public sealed class RelayStore
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
         var member = new MemberEntry(Guid.NewGuid(), displayName, token, team);
         team.Members.Add(member.Id, member);
+        member.StateRevision = NextRevision(team);
         _membersByToken.Add(token, member);
         return new TeamSession(
             team.Id,
@@ -260,8 +284,9 @@ public sealed class RelayStore
             _options.HeartbeatIntervalSeconds);
     }
 
-    private void RemoveMember(MemberEntry member)
+    private long RemoveMember(MemberEntry member)
     {
+        var stateRevision = NextRevision(member.Team);
         _membersByToken.Remove(member.Token);
         member.Team.Members.Remove(member.Id);
         foreach (var pingId in member.Team.MapPings.Values
@@ -276,6 +301,8 @@ public sealed class RelayStore
         {
             _teams.Remove(member.Team.Id);
         }
+
+        return stateRevision;
     }
 
     private MemberEntry RequireMember(string token)
@@ -296,14 +323,20 @@ public sealed class RelayStore
         team.Id,
         team.InviteCode,
         team.Members.Values.Select(ToSnapshot).ToArray(),
-        team.MapPings.Values.OrderBy(ping => ping.CreatedAt).ToArray());
+        team.MapPings.Values.OrderBy(ping => ping.CreatedAt).ToArray(),
+        team.StateRevision);
 
     private static TeamMemberSnapshot ToSnapshot(MemberEntry member) => new(
         member.Id,
         member.DisplayName,
         member.ConnectionIds.Count > 0,
         member.LastSeenAt,
-        member.Telemetry);
+        member.Telemetry)
+    {
+        StateRevision = member.StateRevision
+    };
+
+    private static long NextRevision(TeamEntry team) => ++team.StateRevision;
 
     private string NewInviteCode()
     {
@@ -399,6 +432,7 @@ public sealed class RelayStore
         public string InviteCode { get; } = inviteCode;
         public Dictionary<Guid, MemberEntry> Members { get; } = [];
         public Dictionary<Guid, TeamMapPingSnapshot> MapPings { get; } = [];
+        public long StateRevision { get; set; }
     }
 
     private sealed class MemberEntry(Guid id, string displayName, string token, TeamEntry team)
@@ -410,6 +444,7 @@ public sealed class RelayStore
         public HashSet<string> ConnectionIds { get; } = new(StringComparer.Ordinal);
         public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
         public long LastSequence { get; set; }
+        public long StateRevision { get; set; }
         public TeamMemberTelemetry? Telemetry { get; set; }
     }
 }
@@ -419,10 +454,15 @@ public sealed record MemberStatus(Guid TeamId, TeamMemberSnapshot Member);
 public sealed record MemberRemoval(
     Guid TeamId,
     Guid MemberId,
-    IReadOnlyList<TeamMapPingSnapshot> MapPings);
+    IReadOnlyList<TeamMapPingSnapshot> MapPings,
+    long StateRevision);
 public sealed record TelemetryResult(Guid TeamId, bool Accepted, TeamMemberSnapshot Member);
 public sealed record MapPingResult(
     Guid TeamId,
     TeamMapPingSnapshot Ping,
-    IReadOnlyList<TeamMapPingSnapshot> MapPings);
-public sealed record MapPingListResult(Guid TeamId, IReadOnlyList<TeamMapPingSnapshot> MapPings);
+    IReadOnlyList<TeamMapPingSnapshot> MapPings,
+    long StateRevision);
+public sealed record MapPingListResult(
+    Guid TeamId,
+    IReadOnlyList<TeamMapPingSnapshot> MapPings,
+    long StateRevision);

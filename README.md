@@ -50,6 +50,9 @@ public static readonly Uri DefaultBaseUri = new("https://relay.example.com/");
 - Tối đa 15 thành viên mỗi nhóm.
 - Thành viên hết hạn sau 45 giây không heartbeat.
 - Telemetry và map ping được kiểm tra giới hạn đầu vào.
+- Protocol v2.2.2 hỗ trợ `ServerEndpoint`, `GetSnapshot`, room revision, `MemberRemovedV2` và `MapPingsChangedV2` để client tự phục hồi sau reconnect hoặc delta bị lỡ.
+- Relay vẫn phát song song event legacy `MemberRemoved` và `MapPingsChanged`, nên client cũ tiếp tục hoạt động trong thời gian chuyển đổi.
+- `/health` trả `protocol: 2` để kiểm tra nhanh VPS đã chạy đúng bản relay mới.
 - Token thành viên được sinh ngẫu nhiên bằng bộ sinh số mật mã.
 - Trạng thái lưu trong RAM; khi dịch vụ restart, các nhóm đang mở sẽ kết thúc.
 - Một container relay duy nhất. Nếu cần chạy nhiều replica, phải thêm Redis backplane và kho trạng thái dùng chung.
