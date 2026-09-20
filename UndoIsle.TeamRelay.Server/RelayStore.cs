@@ -17,7 +17,8 @@ public sealed class RelayStore
         _options = options.Value;
         if (_options.MaxMembersPerTeam is < 2 or > 64
             || _options.HeartbeatIntervalSeconds is < 1 or > 60
-            || _options.MemberExpirySeconds <= _options.HeartbeatIntervalSeconds)
+            || _options.MemberExpirySeconds <= _options.HeartbeatIntervalSeconds
+            || _options.CleanupIntervalSeconds is < 1 or > 60)
         {
             throw new InvalidOperationException("Cấu hình Relay không hợp lệ.");
         }

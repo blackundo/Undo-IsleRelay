@@ -48,7 +48,7 @@ public static readonly Uri DefaultBaseUri = new("https://relay.example.com/");
 ## Phạm vi bản đầu
 
 - Tối đa 15 thành viên mỗi nhóm.
-- Thành viên hết hạn sau 45 giây không heartbeat.
+- Thành viên hết hạn sau 35 giây không heartbeat; relay quét dọn mỗi 5 giây.
 - Telemetry và map ping được kiểm tra giới hạn đầu vào.
 - Protocol v2.2.2 hỗ trợ `ServerEndpoint`, `GetSnapshot`, room revision, `MemberRemovedV2` và `MapPingsChangedV2` để client tự phục hồi sau reconnect hoặc delta bị lỡ.
 - Relay vẫn phát song song event legacy `MemberRemoved` và `MapPingsChanged`, nên client cũ tiếp tục hoạt động trong thời gian chuyển đổi.

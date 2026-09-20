@@ -6,6 +6,16 @@ namespace UndoIsle.TeamRelay.Server.Tests;
 public sealed class RelayStoreRevisionTests
 {
     [Fact]
+    public void DefaultsKeepMembersForThirtyFiveSecondsAndSweepEveryFiveSeconds()
+    {
+        var options = new RelayOptions();
+
+        Assert.Equal(35, options.MemberExpirySeconds);
+        Assert.Equal(5, options.CleanupIntervalSeconds);
+        Assert.True(options.MemberExpirySeconds > options.HeartbeatIntervalSeconds);
+    }
+
+    [Fact]
     public void SnapshotAndDeltasCarryMonotonicRoomRevisions()
     {
         var store = CreateStore();

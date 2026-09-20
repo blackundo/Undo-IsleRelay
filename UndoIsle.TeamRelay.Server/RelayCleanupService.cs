@@ -1,15 +1,18 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 namespace UndoIsle.TeamRelay.Server;
 
 public sealed class RelayCleanupService(
     RelayStore store,
     IHubContext<TeamHub> hubContext,
+    IOptions<RelayOptions> options,
     ILogger<RelayCleanupService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+        using var timer = new PeriodicTimer(
+            TimeSpan.FromSeconds(options.Value.CleanupIntervalSeconds));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             var removals = store.RemoveExpired();
