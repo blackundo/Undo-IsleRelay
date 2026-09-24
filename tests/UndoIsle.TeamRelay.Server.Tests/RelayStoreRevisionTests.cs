@@ -106,36 +106,29 @@ public sealed class RelayStoreRevisionTests
     [Theory]
     [InlineData(3)]
     [InlineData(7)]
-    public void FreeRoomsAllowSupportedFreeSizes(int size)
-    {
-        var store = CreateStore();
-
-        var session = store.CreateTeam("Alpha", requestedMaxMembers: size);
-
-        Assert.Equal(size, session.MaxMembers);
-    }
-
-    [Theory]
     [InlineData(10)]
     [InlineData(21)]
-    public void LargerRoomsRequireValidatedProProof(int size)
+    [InlineData(25)]
+    public void EverySupportedSizeIsAvailableWithoutPro(int size)
     {
         var store = CreateStore();
 
-        var denied = Assert.Throws<RelayException>(() => store.CreateTeam(
-            "Alpha", TeamAccessTier.Pro, size, "invalid"));
-        var allowed = store.CreateTeam("Bravo", TeamAccessTier.Pro, size, "valid-pro");
+        var free = store.CreateTeam("Alpha", TeamAccessTier.Free, size);
+        var forgedPro = store.CreateTeam("Bravo", TeamAccessTier.Pro, size, "forged.invalid.token");
 
-        Assert.Equal("pro_required", denied.Code);
-        Assert.Equal(size, allowed.MaxMembers);
+        Assert.Equal(size, free.MaxMembers);
+        Assert.Equal(size, forgedPro.MaxMembers);
     }
 
-    private static RelayStore CreateStore() => new(
-        Options.Create(new RelayOptions()),
-        new TestEntitlementValidator());
-
-    private sealed class TestEntitlementValidator : IProEntitlementValidator
+    [Fact]
+    public void DefaultRoomUsesTwentyFiveMemberLimit()
     {
-        public bool HasCurrentProAccess(string? proof) => proof == "valid-pro";
+        var store = CreateStore();
+
+        var session = store.CreateTeam("Alpha");
+
+        Assert.Equal(25, session.MaxMembers);
     }
+
+    private static RelayStore CreateStore() => new(Options.Create(new RelayOptions()));
 }

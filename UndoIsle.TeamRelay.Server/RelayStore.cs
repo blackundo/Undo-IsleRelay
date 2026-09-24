@@ -11,14 +11,10 @@ public sealed class RelayStore
     private readonly Dictionary<string, MemberEntry> _membersByToken =
         new(StringComparer.Ordinal);
     private readonly RelayOptions _options;
-    private readonly IProEntitlementValidator _entitlementValidator;
 
-    public RelayStore(
-        IOptions<RelayOptions> options,
-        IProEntitlementValidator entitlementValidator)
+    public RelayStore(IOptions<RelayOptions> options)
     {
         _options = options.Value;
-        _entitlementValidator = entitlementValidator;
         if (_options.MaxMembersPerTeam is < 2 or > 64
             || _options.HeartbeatIntervalSeconds is < 1 or > 60
             || _options.MemberExpirySeconds <= _options.HeartbeatIntervalSeconds
@@ -40,17 +36,7 @@ public sealed class RelayStore
         {
             throw new RelayException(
                 "invalid_room_size",
-                "Quy mô phòng phải là 3, 7, 10 hoặc 21 người.");
-        }
-
-        if (requestedMaxMembers > TeamRoomLimits.FreeMaxMembers
-            && (tier != TeamAccessTier.Pro
-                || !_entitlementValidator.HasCurrentProAccess(entitlementProof)))
-        {
-            throw new RelayException(
-                "pro_required",
-                "Phòng 10 hoặc 21 người yêu cầu quyền Pro còn hiệu lực.",
-                StatusCodes.Status403Forbidden);
+                "Quy mô phòng phải là 3, 7, 10, 21 hoặc 25 người.");
         }
 
         lock (_gate)

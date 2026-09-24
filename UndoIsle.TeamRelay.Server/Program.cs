@@ -11,7 +11,6 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
 });
 builder.Services.Configure<RelayOptions>(builder.Configuration.GetSection("Relay"));
-builder.Services.AddSingleton<IProEntitlementValidator, ProEntitlementValidator>();
 builder.Services.AddSingleton<RelayStore>();
 builder.Services.AddHostedService<RelayCleanupService>();
 builder.Services.AddSignalR(options =>

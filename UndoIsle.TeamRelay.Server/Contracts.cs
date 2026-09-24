@@ -8,10 +8,10 @@ public enum TeamAccessTier
 
 public static class TeamRoomLimits
 {
-    public const int FreeMaxMembers = 7;
-    public const int ProMaxMembers = 21;
+    public const int FreeMaxMembers = 25;
+    public const int ProMaxMembers = 25;
 
-    public static bool IsSupported(int size) => size is 3 or 7 or 10 or 21;
+    public static bool IsSupported(int size) => size is 3 or 7 or 10 or 21 or 25;
 }
 
 public sealed record CreateTeamRequest(

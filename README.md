@@ -47,8 +47,8 @@ public static readonly Uri DefaultBaseUri = new("https://relay.example.com/");
 
 ## Giới hạn phòng và tương thích
 
-- Chủ phòng chọn 3, 7, 10 hoặc 21 thành viên; Free tối đa 7, Pro tối đa 21.
-- Phòng 10/21 chỉ được tạo khi relay tự xác minh JWT `pro_lease` RS256 còn hạn của `isle-system.modundo.com`; giá trị tier do client gửi không tự cấp quyền.
+- Chủ phòng chọn 3, 7, 10, 21 hoặc 25 thành viên; cả Free và Pro đều được tạo phòng tối đa 25 người.
+- Relay vẫn nhận các trường tier/entitlement của client mới để tương thích protocol, nhưng dung lượng phòng Undo-Isle không phụ thuộc gói tài khoản.
 - Thành viên hết hạn sau 35 giây không heartbeat; relay quét dọn mỗi 5 giây.
 - Telemetry và map ping được kiểm tra giới hạn đầu vào.
 - Protocol v2.2.2 hỗ trợ `ServerEndpoint`, `GetSnapshot`, room revision, `MemberRemovedV2` và `MapPingsChangedV2` để client tự phục hồi sau reconnect hoặc delta bị lỡ.
