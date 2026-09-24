@@ -11,6 +11,7 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
 });
 builder.Services.Configure<RelayOptions>(builder.Configuration.GetSection("Relay"));
+builder.Services.AddSingleton<IProEntitlementValidator, ProEntitlementValidator>();
 builder.Services.AddSingleton<RelayStore>();
 builder.Services.AddHostedService<RelayCleanupService>();
 builder.Services.AddSignalR(options =>
@@ -38,7 +39,11 @@ app.MapPost("/api/v1/teams", (CreateTeamRequest request, RelayStore store) =>
 {
     try
     {
-        return Results.Ok(store.CreateTeam(request.DisplayName));
+        return Results.Ok(store.CreateTeam(
+            request.DisplayName,
+            request.Tier,
+            request.RequestedMaxMembers,
+            request.EntitlementProof));
     }
     catch (RelayException exception)
     {

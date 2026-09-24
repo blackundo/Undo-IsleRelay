@@ -1,7 +1,30 @@
 namespace UndoIsle.TeamRelay.Server;
 
-public sealed record CreateTeamRequest(string DisplayName);
-public sealed record JoinTeamRequest(string InviteCode, string DisplayName);
+public enum TeamAccessTier
+{
+    Free = 0,
+    Pro = 1
+}
+
+public static class TeamRoomLimits
+{
+    public const int FreeMaxMembers = 7;
+    public const int ProMaxMembers = 21;
+
+    public static bool IsSupported(int size) => size is 3 or 7 or 10 or 21;
+}
+
+public sealed record CreateTeamRequest(
+    string DisplayName,
+    TeamAccessTier Tier = TeamAccessTier.Free,
+    int RequestedMaxMembers = TeamRoomLimits.FreeMaxMembers,
+    string? EntitlementProof = null);
+
+public sealed record JoinTeamRequest(
+    string InviteCode,
+    string DisplayName,
+    TeamAccessTier Tier = TeamAccessTier.Free,
+    string? EntitlementProof = null);
 
 public sealed record TeamSession(
     Guid TeamId,

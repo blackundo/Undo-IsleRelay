@@ -11,10 +11,14 @@ public sealed class RelayStore
     private readonly Dictionary<string, MemberEntry> _membersByToken =
         new(StringComparer.Ordinal);
     private readonly RelayOptions _options;
+    private readonly IProEntitlementValidator _entitlementValidator;
 
-    public RelayStore(IOptions<RelayOptions> options)
+    public RelayStore(
+        IOptions<RelayOptions> options,
+        IProEntitlementValidator entitlementValidator)
     {
         _options = options.Value;
+        _entitlementValidator = entitlementValidator;
         if (_options.MaxMembersPerTeam is < 2 or > 64
             || _options.HeartbeatIntervalSeconds is < 1 or > 60
             || _options.MemberExpirySeconds <= _options.HeartbeatIntervalSeconds
@@ -24,12 +28,34 @@ public sealed class RelayStore
         }
     }
 
-    public TeamSession CreateTeam(string displayName)
+    public TeamSession CreateTeam(
+        string displayName,
+        TeamAccessTier tier = TeamAccessTier.Free,
+        int requestedMaxMembers = TeamRoomLimits.FreeMaxMembers,
+        string? entitlementProof = null)
     {
         displayName = NormalizeDisplayName(displayName);
+        if (!TeamRoomLimits.IsSupported(requestedMaxMembers)
+            || requestedMaxMembers > _options.MaxMembersPerTeam)
+        {
+            throw new RelayException(
+                "invalid_room_size",
+                "Quy mô phòng phải là 3, 7, 10 hoặc 21 người.");
+        }
+
+        if (requestedMaxMembers > TeamRoomLimits.FreeMaxMembers
+            && (tier != TeamAccessTier.Pro
+                || !_entitlementValidator.HasCurrentProAccess(entitlementProof)))
+        {
+            throw new RelayException(
+                "pro_required",
+                "Phòng 10 hoặc 21 người yêu cầu quyền Pro còn hiệu lực.",
+                StatusCodes.Status403Forbidden);
+        }
+
         lock (_gate)
         {
-            var team = new TeamEntry(Guid.NewGuid(), NewInviteCode());
+            var team = new TeamEntry(Guid.NewGuid(), NewInviteCode(), requestedMaxMembers);
             _teams.Add(team.Id, team);
             return AddMember(team, displayName);
         }
@@ -51,7 +77,7 @@ public sealed class RelayStore
                     StatusCodes.Status404NotFound);
             }
 
-            if (team.Members.Count >= _options.MaxMembersPerTeam)
+            if (team.Members.Count >= team.MaxMembers)
             {
                 throw new RelayException(
                     "team_full",
@@ -281,7 +307,7 @@ public sealed class RelayStore
             member.Id,
             team.InviteCode,
             token,
-            _options.MaxMembersPerTeam,
+            team.MaxMembers,
             _options.HeartbeatIntervalSeconds);
     }
 
@@ -427,10 +453,11 @@ public sealed class RelayStore
     private static string? Limit(string? value, int maximumLength) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim()[..Math.Min(value.Trim().Length, maximumLength)];
 
-    private sealed class TeamEntry(Guid id, string inviteCode)
+    private sealed class TeamEntry(Guid id, string inviteCode, int maxMembers)
     {
         public Guid Id { get; } = id;
         public string InviteCode { get; } = inviteCode;
+        public int MaxMembers { get; } = maxMembers;
         public Dictionary<Guid, MemberEntry> Members { get; } = [];
         public Dictionary<Guid, TeamMapPingSnapshot> MapPings { get; } = [];
         public long StateRevision { get; set; }

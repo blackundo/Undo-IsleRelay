@@ -103,5 +103,39 @@ public sealed class RelayStoreRevisionTests
         Assert.Equal(accepted.Member.StateRevision, snapshot.StateRevision);
     }
 
-    private static RelayStore CreateStore() => new(Options.Create(new RelayOptions()));
+    [Theory]
+    [InlineData(3)]
+    [InlineData(7)]
+    public void FreeRoomsAllowSupportedFreeSizes(int size)
+    {
+        var store = CreateStore();
+
+        var session = store.CreateTeam("Alpha", requestedMaxMembers: size);
+
+        Assert.Equal(size, session.MaxMembers);
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(21)]
+    public void LargerRoomsRequireValidatedProProof(int size)
+    {
+        var store = CreateStore();
+
+        var denied = Assert.Throws<RelayException>(() => store.CreateTeam(
+            "Alpha", TeamAccessTier.Pro, size, "invalid"));
+        var allowed = store.CreateTeam("Bravo", TeamAccessTier.Pro, size, "valid-pro");
+
+        Assert.Equal("pro_required", denied.Code);
+        Assert.Equal(size, allowed.MaxMembers);
+    }
+
+    private static RelayStore CreateStore() => new(
+        Options.Create(new RelayOptions()),
+        new TestEntitlementValidator());
+
+    private sealed class TestEntitlementValidator : IProEntitlementValidator
+    {
+        public bool HasCurrentProAccess(string? proof) => proof == "valid-pro";
+    }
 }
